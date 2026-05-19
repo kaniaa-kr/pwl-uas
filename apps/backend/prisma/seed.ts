@@ -81,14 +81,19 @@ async function main() {
   // Seed Kelas
   const kelasList = ['X-A','X-B','XI-IPA-1','XI-IPS-1','XII-IPA-1'];
   const tingkatMap: Record<string, number> = { X: 10, XI: 11, XII: 12 };
-  const kelasRecords = await Promise.all(
-    kelasList.map((nama) =>
+  await Promise.all(
+    kelasList.map((nama) => {
+      const tingkatKey = nama.split('-')[0] as keyof typeof tingkatMap;
+      const tingkat = tingkatMap[tingkatKey] ?? 10;
+
+      return (
       db.kelas.upsert({
         where: { nama },
         update: {},
-        create: { nama, tingkat: tingkatMap[nama.split('-')[0]] },
+        create: { nama, tingkat },
       })
-    )
+      );
+    })
   );
 
   console.log('✅ Seed selesai');
