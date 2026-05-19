@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { authRoute } from './routes/auth.route';
 import { siswaRoute } from './routes/siswa.route';
+import { kelasRoute } from './routes/kelas.route';
 import { guruRoute } from './routes/guru.route';
 import { nilaiRoute } from './routes/nilai.route';
 import { absensiRoute } from './routes/absensi.route';
@@ -13,6 +14,7 @@ const app = new Elysia()
   .use(cors({ origin: '*' }))
   .use(authRoute)
   .use(siswaRoute)
+  .use(kelasRoute)
   .use(guruRoute)
   .use(nilaiRoute)
   .use(absensiRoute)
