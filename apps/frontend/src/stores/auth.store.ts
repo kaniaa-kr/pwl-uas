@@ -1,28 +1,35 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+type UserInfo = {
+  id: string;
+  username: string;
+  email: string;
+  roles: string[];
+  permissions: string[];
+};
 
 type AuthState = {
   token: string | null;
-  permissions: string[];
-  setAuth: (token: string, permissions?: string[]) => void;
+  user: UserInfo | null;
+  setAuth: (token: string, user: UserInfo) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
+  hasRole: (role: string) => boolean;
 };
 
-const storedToken = localStorage.getItem('token');
-const storedPermissions = JSON.parse(localStorage.getItem('permissions') ?? '[]') as string[];
-
-export const useAuthStore = create<AuthState>((set, get) => ({
-  token: storedToken,
-  permissions: storedPermissions,
-  setAuth: (token, permissions = []) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('permissions', JSON.stringify(permissions));
-    set({ token, permissions });
-  },
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('permissions');
-    set({ token: null, permissions: [] });
-  },
-  hasPermission: (permission) => get().permissions.includes(permission),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      token: null,
+      user: null,
+      setAuth: (token, user) => set({ token, user }),
+      logout: () => set({ token: null, user: null }),
+      hasPermission: (permission) =>
+        get().user?.permissions.includes(permission) ?? false,
+      hasRole: (role) =>
+        get().user?.roles.includes(role) ?? false,
+    }),
+    { name: 'eduaccess-auth' }
+  )
+);
