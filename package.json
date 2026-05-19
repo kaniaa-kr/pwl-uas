@@ -1,5 +1,12 @@
 {
-  "name": "pwl-uas",
+  "name": "eduaccess",
+  "version": "1.0.0",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:be": "bun --cwd apps/backend dev",
+    "dev:fe": "bun --cwd apps/frontend dev",
+    "dev": "concurrently \"bun dev:be\" \"bun dev:fe\""
+  },
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -8,9 +15,5 @@
   },
   "peerDependencies": {
     "typescript": "^5"
-  },
-  "dependencies": {
-    "@elysiajs/html": "^1.4.2",
-    "elysia": "^1.4.28"
   }
 }

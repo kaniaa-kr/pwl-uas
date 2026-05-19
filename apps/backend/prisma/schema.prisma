@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== RBAC CORE (5 Tabel Wajib dari Modul) =====
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  roles     UserRole[]
+  guru      Guru?
+  siswa     Siswa?
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@id([roleId, permissionId])
+}
+
+// ===== DOMAIN SEKOLAH =====
+
+model Guru {
+  id         String    @id @default(uuid())
+  userId     String    @unique
+  nip        String    @unique
+  namaLengkap String
+  mapel      String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jadwals    Jadwal[]
+  nilais     Nilai[]
+}
+
+model Kelas {
+  id        String    @id @default(uuid())
+  nama      String    @unique   // contoh: "X-A", "XI-IPA-1"
+  tingkat   Int                 // 10, 11, 12
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  siswas    Siswa[]
+  jadwals   Jadwal[]
+}
+
+model Siswa {
+  id          String     @id @default(uuid())
+  userId      String     @unique
+  nis         String     @unique
+  namaLengkap String
+  kelasId     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kelas       Kelas      @relation(fields: [kelasId], references: [id])
+  nilais      Nilai[]
+  absensis    Absensi[]
+}
+
+model Jadwal {
+  id        String   @id @default(uuid())
+  guruId    String
+  kelasId   String
+  mapel     String
+  hari      String   // "Senin", "Selasa", dst
+  jamMulai  String   // "08:00"
+  jamSelesai String  // "09:30"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  guru      Guru     @relation(fields: [guruId], references: [id])
+  kelas     Kelas    @relation(fields: [kelasId], references: [id])
+}
+
+model Nilai {
+  id        String   @id @default(uuid())
+  siswaId   String
+  guruId    String
+  mapel     String
+  nilai     Float
+  semester  Int      // 1 atau 2
+  tahunAjar String   // "2024/2025"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  siswa     Siswa    @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  guru      Guru     @relation(fields: [guruId], references: [id])
+}
+
+model Absensi {
+  id        String   @id @default(uuid())
+  siswaId   String
+  tanggal   DateTime
+  status    String   // "HADIR", "IZIN", "SAKIT", "ALPHA"
+  keterangan String?
+  createdAt DateTime @default(now())
+  siswa     Siswa    @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+}
