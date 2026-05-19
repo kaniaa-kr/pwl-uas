@@ -214,8 +214,8 @@ eduaccess/
 ### 5.1 — Setup Pertama Kali
 
 ```bash
-git clone https://github.com/<repo>/eduaccess.git
-cd eduaccess
+git clone https://github.com/kaniaa-kr/pwl-uas.git
+cd pwl-uas
 git checkout main
 git pull origin main
 
@@ -301,7 +301,7 @@ EXIT;
 ### 6.2 — Inisialisasi Monorepo
 
 ```bash
-mkdir eduaccess && cd eduaccess
+mkdir pwl-uas && cd pwl-uas
 git init
 
 cat > package.json << 'EOF'
