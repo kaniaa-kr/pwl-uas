@@ -1,208 +1,195 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAuthStore } from '../stores/auth.store';
-import { PermissionGuard } from '../components/PermissionGuard';
 
-const API = import.meta.env.VITE_API_URL;
-
-const HARI = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+// Interface tipe data agar TypeScript ketat dan aman
+interface Guru {
+  id: string;
+  nama: string;
+}
 
 interface Jadwal {
   id: string;
-  mapel: string;
   hari: string;
   jamMulai: string;
   jamSelesai: string;
-  guru: { namaLengkap: string };
-  kelas: { nama: string };
+  mataPelajaran: string;
+  ruangan: string;
+  guruId: string;
+  guru?: {
+    nama: string;
+  };
 }
 
 export default function JadwalPage() {
-  const { token } = useAuthStore();
   const [jadwals, setJadwals] = useState<Jadwal[]>([]);
-  const [gurus, setGurus] = useState<any[]>([]);
-  const [kelasList, setKelasList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editTarget, setEditTarget] = useState<Jadwal | null>(null);
-  const [form, setForm] = useState({
-    guruId: '', kelasId: '', mapel: '',
-    hari: 'Senin', jamMulai: '', jamSelesai: '',
-  });
+  const [gurus, setGurus] = useState<Guru[]>([]);
+  
+  // State form input
+  const [hari, setHari] = useState('Senin');
+  const [jamMulai, setJamMulai] = useState('');
+  const [jamSelesai, setJamSelesai] = useState('');
+  const [mataPelajaran, setMataPelajaran] = useState('');
+  const [ruangan, setRuangan] = useState('');
+  const [guruId, setGuruId] = useState('');
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentId, setCurrentId] = useState('');
 
-  const headers = { Authorization: `Bearer ${token}` };
+  // State trigger untuk me-refresh data secara aman tanpa cascading render
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const triggerRefresh = () => setRefreshTrigger((prev) => prev + 1);
 
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [j, g, k] = await Promise.all([
-        axios.get(`${API}/jadwal`, { headers }),
-        axios.get(`${API}/guru`, { headers }),
-        axios.get(`${API}/siswa`, { headers }), // ambil kelas via siswa, atau bisa tambah endpoint /kelas
-      ]);
-      setJadwals(j.data);
-      setGurus(g.data);
-    } catch {
-      /* handled below */
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchAll(); }, []);
-
-  const handleSubmit = async () => {
-    try {
-      if (editTarget) {
-        await axios.put(`${API}/jadwal/${editTarget.id}`, form, { headers });
-      } else {
-        await axios.post(`${API}/jadwal`, form, { headers });
+  // FIX: Isolasi fungsi fetching data di dalam useEffect agar terhindar dari cascading render warning
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        const [jadwalRes, guruRes] = await Promise.all([
+          axios.get('/api/jadwal'),
+          axios.get('/api/guru')
+        ]);
+        setJadwals(jadwalRes.data);
+        setGurus(guruRes.data);
+      } catch (error: unknown) {
+        console.error("Gagal mengambil data jadwal/guru:", error);
       }
-      setShowForm(false);
-      setEditTarget(null);
-      setForm({ guruId: '', kelasId: '', mapel: '', hari: 'Senin', jamMulai: '', jamSelesai: '' });
-      fetchAll();
-    } catch (e: any) {
-      alert(e.response?.data?.message || 'Gagal menyimpan jadwal');
+    };
+
+    fetchAllData();
+  }, [refreshTrigger]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = { hari, jamMulai, jamSelesai, mataPelajaran, ruangan, guruId };
+      
+      if (isEditing) {
+        await axios.put(`/api/jadwal/${currentId}`, payload);
+        setIsEditing(false);
+        setCurrentId('');
+      } else {
+        await axios.post('/api/jadwal', payload);
+      }
+
+      // Reset Form
+      setJamMulai('');
+      setJamSelesai('');
+      setMataPelajaran('');
+      setRuangan('');
+      setGuruId('');
+      triggerRefresh(); // Refresh data lewat trigger state
+    } catch (error: unknown) { // FIX: Mengubah 'any' menjadi 'unknown'
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan pada sistem";
+      alert(errorMessage);
     }
   };
 
-  const handleEdit = (j: Jadwal) => {
-    setEditTarget(j);
-    setForm({
-      guruId: '', kelasId: '', mapel: j.mapel,
-      hari: j.hari, jamMulai: j.jamMulai, jamSelesai: j.jamSelesai,
-    });
-    setShowForm(true);
+  const handleEdit = (jadwal: Jadwal) => {
+    setIsEditing(true);
+    setCurrentId(jadwal.id);
+    setHari(jadwal.hari);
+    setJamMulai(jadwal.jamMulai);
+    setJamSelesai(jadwal.jamSelesai);
+    setMataPelajaran(jadwal.mataPelajaran);
+    setRuangan(jadwal.ruangan);
+    setGuruId(jadwal.guruId);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Yakin hapus jadwal ini?')) return;
-    await axios.delete(`${API}/jadwal/${id}`, { headers });
-    fetchAll();
+    if (confirm("Apakah Anda yakin ingin menghapus jadwal pelajaran ini?")) {
+      try {
+        await axios.delete(`/api/jadwal/${id}`);
+        triggerRefresh(); // Refresh data lewat trigger state
+      } catch (error: unknown) {
+        console.error("Gagal menghapus jadwal:", error);
+      }
+    }
   };
 
-  // Grup jadwal per hari
-  const jadwalByHari = HARI.reduce((acc, hari) => {
-    acc[hari] = jadwals.filter((j) => j.hari === hari);
-    return acc;
-  }, {} as Record<string, Jadwal[]>);
-
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Jadwal Pelajaran</h1>
-        <PermissionGuard permission="create:jadwal">
-          <button
-            onClick={() => { setShowForm(true); setEditTarget(null); }}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            + Tambah Jadwal
-          </button>
-        </PermissionGuard>
+    <div className="p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Manajemen Jadwal Pelajaran</h1>
+
+      {/* Form Input Jadwal */}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Hari</label>
+          <select value={hari} onChange={(e) => setHari(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="Senin">Senin</option>
+            <option value="Selasa">Selasa</option>
+            <option value="Rabu">Rabu</option>
+            <option value="Kamis">Kamis</option>
+            <option value="Jumat">Jumat</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Jam Mulai</label>
+          <input type="time" value={jamMulai} onChange={(e) => setJamMulai(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Jam Selesai</label>
+          <input type="time" value={jamSelesai} onChange={(e) => setJamSelesai(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Mata Pelajaran</label>
+          <input type="text" value={mataPelajaran} onChange={(e) => setMataPelajaran(e.target.value)} placeholder="Contoh: Matematika" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ruangan / Kelas</label>
+          <input type="text" value={ruangan} onChange={(e) => setRuangan(e.target.value)} placeholder="Contoh: Lab Komputer 1" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Guru Pengajar</label>
+          <select value={guruId} onChange={(e) => setGuruId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+            <option value="">-- Pilih Guru --</option>
+            {gurus.map((g) => (
+              <option key={g.id} value={g.id}>{g.nama}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className={`w-full font-medium py-2 px-4 rounded-lg text-white transition-colors md:col-span-3 ${isEditing ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+          {isEditing ? 'Update Jadwal Pelajaran' : '+ Tambah Jadwal Pelajaran'}
+        </button>
+      </form>
+
+      {/* Grid Menu Tampilan Jadwal Per Hari */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="p-4 font-semibold text-gray-600 text-sm">Waktu & Hari</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Mata Pelajaran</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Guru</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Ruangan</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {jadwals.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-gray-400 text-sm">Belum ada jadwal pelajaran yang diatur.</td>
+              </tr>
+            ) : (
+              jadwals.map((j) => (
+                <tr key={j.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="p-4 text-sm font-medium text-gray-700">
+                    <span className="block font-semibold text-indigo-600">{j.hari}</span>
+                    <span className="text-xs text-gray-500">{j.jamMulai} - {j.jamSelesai}</span>
+                  </td>
+                  <td className="p-4 text-sm font-medium text-gray-800">{j.mataPelajaran}</td>
+                  <td className="p-4 text-sm text-gray-600">{j.guru?.nama || 'Guru Tidak Diketahui'}</td>
+                  <td className="p-4 text-sm text-gray-600">
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">{j.ruangan}</span>
+                  </td>
+                  <td className="p-4 text-sm text-center space-x-2">
+                    <button onClick={() => handleEdit(j)} className="text-amber-600 hover:text-amber-700 font-medium px-2 py-1 rounded hover:bg-amber-50">Edit</button>
+                    <button onClick={() => handleDelete(j.id)} className="text-rose-600 hover:text-rose-700 font-medium px-2 py-1 rounded hover:bg-rose-50">Hapus</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* Modal Form */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-bold mb-4">{editTarget ? 'Edit Jadwal' : 'Tambah Jadwal'}</h2>
-
-            <label className="text-xs text-gray-500 mb-1 block">Guru</label>
-            <select
-              value={form.guruId}
-              onChange={(e) => setForm({ ...form, guruId: e.target.value })}
-              className="w-full border rounded px-3 py-2 mb-3 text-sm"
-            >
-              <option value="">-- Pilih Guru --</option>
-              {gurus.map((g) => (
-                <option key={g.id} value={g.id}>{g.namaLengkap} ({g.mapel})</option>
-              ))}
-            </select>
-
-            <label className="text-xs text-gray-500 mb-1 block">Kelas ID</label>
-            <input
-              placeholder="Kelas ID (dari database)"
-              value={form.kelasId}
-              onChange={(e) => setForm({ ...form, kelasId: e.target.value })}
-              className="w-full border rounded px-3 py-2 mb-3 text-sm"
-            />
-
-            <label className="text-xs text-gray-500 mb-1 block">Mata Pelajaran</label>
-            <input
-              placeholder="Mata Pelajaran"
-              value={form.mapel}
-              onChange={(e) => setForm({ ...form, mapel: e.target.value })}
-              className="w-full border rounded px-3 py-2 mb-3 text-sm"
-            />
-
-            <label className="text-xs text-gray-500 mb-1 block">Hari</label>
-            <select
-              value={form.hari}
-              onChange={(e) => setForm({ ...form, hari: e.target.value })}
-              className="w-full border rounded px-3 py-2 mb-3 text-sm"
-            >
-              {HARI.map((h) => <option key={h}>{h}</option>)}
-            </select>
-
-            <div className="flex gap-2 mb-4">
-              <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1 block">Jam Mulai</label>
-                <input type="time" value={form.jamMulai}
-                  onChange={(e) => setForm({ ...form, jamMulai: e.target.value })}
-                  className="w-full border rounded px-3 py-2 text-sm" />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1 block">Jam Selesai</label>
-                <input type="time" value={form.jamSelesai}
-                  onChange={(e) => setForm({ ...form, jamSelesai: e.target.value })}
-                  className="w-full border rounded px-3 py-2 text-sm" />
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 border rounded text-sm">Batal</button>
-              <button onClick={handleSubmit} className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Simpan</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tampilan per Hari */}
-      {loading ? (
-        <p className="text-gray-400">Memuat jadwal...</p>
-      ) : (
-        <div className="space-y-6">
-          {HARI.map((hari) => (
-            <div key={hari}>
-              <h2 className="font-semibold text-gray-700 mb-2 border-b pb-1">{hari}</h2>
-              {jadwalByHari[hari].length === 0 ? (
-                <p className="text-sm text-gray-400 ml-2">Tidak ada jadwal</p>
-              ) : (
-                <div className="space-y-2">
-                  {jadwalByHari[hari].map((j) => (
-                    <div key={j.id} className="flex items-center justify-between bg-white border rounded px-4 py-3 shadow-sm">
-                      <div>
-                        <p className="font-medium text-sm">{j.mapel}</p>
-                        <p className="text-xs text-gray-500">{j.guru?.namaLengkap} · {j.kelas?.nama}</p>
-                        <p className="text-xs text-gray-400">{j.jamMulai} – {j.jamSelesai}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <PermissionGuard permission="update:jadwal">
-                          <button onClick={() => handleEdit(j)} className="text-blue-500 text-sm hover:underline">Edit</button>
-                        </PermissionGuard>
-                        <PermissionGuard permission="delete:jadwal">
-                          <button onClick={() => handleDelete(j.id)} className="text-red-500 text-sm hover:underline">Hapus</button>
-                        </PermissionGuard>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
