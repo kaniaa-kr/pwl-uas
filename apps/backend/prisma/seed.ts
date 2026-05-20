@@ -85,16 +85,41 @@ async function main() {
     kelasList.map((nama) => {
       const tingkatKey = nama.split('-')[0] as keyof typeof tingkatMap;
       const tingkat = tingkatMap[tingkatKey] ?? 10;
-
-      return (
-      db.kelas.upsert({
+      return db.kelas.upsert({
         where: { nama },
         update: {},
         create: { nama, tingkat },
-      })
-      );
+      });
     })
   );
+
+  // ===== SEED USER PER ROLE =====
+  const userSeeds = [
+    { username: 'kepalasekolah1', email: 'kepsek@eduaccess.id', password: 'kepsek123', role: 'KEPALA_SEKOLAH' },
+    { username: 'tatausaha1', email: 'tu@eduaccess.id', password: 'tu123', role: 'TATA_USAHA' },
+    { username: 'guru1', email: 'guru@eduaccess.id', password: 'guru123', role: 'GURU' },
+    { username: 'siswa1', email: 'siswa@eduaccess.id', password: 'siswa123', role: 'SISWA' },
+    { username: 'wali1', email: 'wali@eduaccess.id', password: 'wali123', role: 'WALI_MURID' },
+    { username: 'operator1', email: 'operator@eduaccess.id', password: 'operator123', role: 'OPERATOR' },
+  ];
+
+  for (const u of userSeeds) {
+    const h = await bcrypt.hash(u.password, 10);
+    const newUser = await db.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: { username: u.username, email: u.email, password: h },
+    });
+    const role = await db.role.findUnique({ where: { name: u.role } });
+    if (role) {
+      await db.userRole.upsert({
+        where: { userId_roleId: { userId: newUser.id, roleId: role.id } },
+        update: {},
+        create: { userId: newUser.id, roleId: role.id },
+      });
+    }
+    console.log(`✅ ${u.role}: ${u.email} / ${u.password}`);
+  }
 
   console.log('✅ Seed selesai');
   console.log('👤 Login SuperAdmin: admin@eduaccess.id / admin123');
