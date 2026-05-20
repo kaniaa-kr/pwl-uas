@@ -60,7 +60,7 @@ async function main() {
     });
     await db.rolePermission.deleteMany({ where: { roleId: role.id } });
     await db.rolePermission.createMany({
-      data: rd.perms.map((p) => ({ roleId: role.id, permissionId: permMap[p] })),
+      data: rd.perms.map((p) => ({ roleId: role.id, permissionId: permMap[p]! })),
     });
   }
 

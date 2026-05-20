@@ -21,14 +21,25 @@ export default function GuruPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const triggerRefresh = () => setRefreshTrigger((prev) => prev + 1);
 
-  // FIX: Mengisolasikan fungsi fetching langsung di dalam useEffect agar bersih dari cascading render warning
+  // FIX: Ditambahkan pengecekan Array.isArray() untuk mencegah error ".map is not a function"
   useEffect(() => {
     const fetchGurus = async () => {
       try {
         const response = await axios.get('/api/guru');
-        setGurus(response.data);
+        
+        if (Array.isArray(response.data)) {
+          // Jika backend mengembalikan raw array langsung: [...]
+          setGurus(response.data);
+        } else if (response.data && Array.isArray(response.data.data)) {
+          // Jika backend membungkus array di dalam object envelope: { data: [...] }
+          setGurus(response.data.data);
+        } else {
+          console.error("Format data API tidak dikenali:", response.data);
+          setGurus([]);
+        }
       } catch (error: unknown) {
         console.error("Gagal mengambil data guru:", error);
+        setGurus([]); // Reset ke array kosong jika request gagal
       }
     };
 
@@ -51,7 +62,7 @@ export default function GuruPage() {
       setNama('');
       setKontak('');
       triggerRefresh(); // Refresh data secara aman
-    } catch (error: unknown) { // FIX: Mengubah 'any' menjadi 'unknown' sesuai aturan ESLint
+    } catch (error: unknown) { 
       const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan data";
       alert(errorMessage);
     }
@@ -111,7 +122,8 @@ export default function GuruPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {gurus.length === 0 ? (
+            {/* FIX: Mengamankan UI dengan validasi Array.isArray sebelum rendering */}
+            {!Array.isArray(gurus) || gurus.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-8 text-center text-gray-400 text-sm">Belum ada data guru.</td>
               </tr>
