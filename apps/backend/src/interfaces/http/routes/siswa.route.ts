@@ -10,6 +10,9 @@ export const siswaRoute = new Elysia({ prefix: '/siswa' })
         kelas: true,
         user: { select: { email: true, username: true } },
       },
+          orderBy: {
+        namaLengkap: 'asc', // urut alfabetis A-Z
+      },
     });
   })
   
