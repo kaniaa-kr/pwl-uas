@@ -11,8 +11,19 @@ export default function NilaiPage() {
 
   useEffect(() => {
     axios.get(`${API}/nilai`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => setNilais(r.data))
-      .catch((err) => console.error(err));
+      .then((r) => {
+        if (Array.isArray(r.data)) {
+          setNilais(r.data);
+        } else if (r.data && Array.isArray(r.data.data)) {
+          setNilais(r.data.data);
+        } else {
+          setNilais([]);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setNilais([]);
+      });
   }, [token]);
 
   return (
@@ -40,7 +51,7 @@ export default function NilaiPage() {
             </tr>
           </thead>
           <tbody className="text-sm text-gray-600">
-            {nilais.map((n: any) => (
+            {Array.isArray(nilais) && nilais.map((n: any) => (
               <tr key={n.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">{n.siswa?.namaLengkap}</td>
                 <td className="p-3">{n.mapel}</td>
@@ -53,7 +64,7 @@ export default function NilaiPage() {
                 </PermissionGuard>
               </tr>
             ))}
-            {nilais.length === 0 && (
+            {(!Array.isArray(nilais) || nilais.length === 0) && (
               <tr>
                 <td colSpan={5} className="p-3 text-center text-gray-400">Belum ada data nilai.</td>
               </tr>

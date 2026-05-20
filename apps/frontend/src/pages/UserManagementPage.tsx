@@ -35,9 +35,17 @@ export default function UserManagementPage() {
 
     // Ambil daftar roles
     axios
-      .get<Role[]>(`${API}/rbac/roles`, { headers })
-      .then((r) => setRoles(r.data))
-      .catch(() => null);
+      .get(`${API}/rbac/roles`, { headers })
+      .then((r) => {
+        if (Array.isArray(r.data)) {
+          setRoles(r.data);
+        } else if (r.data && Array.isArray(r.data.data)) {
+          setRoles(r.data.data);
+        } else {
+          setRoles([]);
+        }
+      })
+      .catch(() => setRoles([]));
   }, []);
 
   const handleAssignRole = async () => {
@@ -98,7 +106,7 @@ export default function UserManagementPage() {
               className="w-full rounded border px-3 py-2 text-sm"
             >
               <option value="">-- Pilih Role --</option>
-              {roles.map((r) => (
+              {Array.isArray(roles) && roles.map((r) => (
                 <option key={r.id} value={r.name}>
                   {r.name}
                 </option>
@@ -117,7 +125,7 @@ export default function UserManagementPage() {
         <div className="mt-6 rounded-lg border bg-white p-4">
           <h2 className="mb-3 text-lg font-medium">Daftar Role Tersedia</h2>
           <ul className="space-y-1">
-            {roles.map((r) => (
+            {Array.isArray(roles) && roles.map((r) => (
               <li
                 key={r.id}
                 className="rounded bg-gray-50 px-3 py-2 text-sm text-gray-700"
